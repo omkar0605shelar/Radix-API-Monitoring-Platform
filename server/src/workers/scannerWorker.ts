@@ -1,6 +1,7 @@
 import { getChannel } from '../config/rabbitmq.js';
 import { updateProjectStatus } from '../models/projectModel.js';
 import { createEndpoint } from '../models/endpointModel.js';
+import redisClient from '../config/redis.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
@@ -89,8 +90,14 @@ export const startWorker = async () => {
           await createEndpoint(projectId, route.method, route.path, mockRequest, mockResponse);
         }
         
-        // 4. Update Status
+        // 4. Update Status and Clear Cache
         await updateProjectStatus(projectId, 'completed');
+        
+        if (redisClient.isOpen) {
+          await redisClient.del(`endpoints:${projectId}`);
+          console.log(`Cleared cache for project ${projectId}`);
+        }
+        
         console.log(`Successfully completed scan for project ${projectId}. Found ${extractedRoutes.length} endpoints.`);
 
       } catch (error) {

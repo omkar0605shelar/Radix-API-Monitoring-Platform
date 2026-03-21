@@ -16,14 +16,27 @@ const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
+const PublicRoute = ({ children }: { children: React.ReactElement }) => {
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+};
+
 function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          } />
           
           <Route path="/dashboard" element={
             <ProtectedRoute>

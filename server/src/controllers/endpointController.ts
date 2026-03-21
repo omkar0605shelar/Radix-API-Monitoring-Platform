@@ -25,7 +25,9 @@ export const getProjectEndpoints = async (req: AuthRequest, res: Response): Prom
     if (redisClient.isOpen) {
       const cached = await redisClient.get(cacheKey);
       if (cached) {
-        res.json(JSON.parse(cached));
+        // Return directly from cache, ensuring consistency
+        const parsed = JSON.parse(cached);
+        res.json(parsed);
         return;
       }
     }
@@ -33,12 +35,21 @@ export const getProjectEndpoints = async (req: AuthRequest, res: Response): Prom
     // 3. Get from DB
     const endpoints = await getEndpointsByProject(projectId as string);
 
-    // 4. Save to Cache (expire in 1 hour)
-    if (redisClient.isOpen) {
-      await redisClient.setEx(cacheKey, 3600, JSON.stringify(endpoints));
+    const endpointsWithId = endpoints.map(e => ({
+      id: (e as any)._id,
+      project_id: e.project_id,
+      method: e.method,
+      path: e.path,
+      request_schema: e.request_schema,
+      response_schema: e.response_schema
+    }));
+
+    // 4. Save to Cache ONLY if project is completed (expire in 1 hour)
+    if (redisClient.isOpen && project.status === 'completed') {
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(endpointsWithId));
     }
 
-    res.json(endpoints);
+    res.json(endpointsWithId);
   } catch (error) {
     console.error('Error fetching endpoints:', error);
     res.status(500).json({ message: 'Server error' });

@@ -12,6 +12,9 @@ const ProjectSchema: Schema = new Schema({
   repository_url: { type: String, required: true },
   status: { type: String, default: 'pending' },
   created_at: { type: Date, default: Date.now }
+}, {
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 const ProjectModel = mongoose.model<Project>('Project', ProjectSchema);

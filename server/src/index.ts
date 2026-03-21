@@ -7,6 +7,7 @@ import { connectRabbitMQ } from './config/rabbitmq.js';
 import authRoutes from './routes/authRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import endpointRoutes from './routes/endpointRoutes.js';
+import { startWorker } from './workers/scannerWorker.js';
 
 dotenv.config();
 
@@ -31,12 +32,24 @@ const start = async () => {
     await connectRedis();
     await connectRabbitMQ();
     
+    // Start RabbitMQ background worker
+    startWorker();
+    
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
+
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Error: Port ${PORT} is already in use. Please stop the process using it.`);
+      } else {
+        console.error('Server failed to start:', error);
+      }
+      process.exit(1);
+    });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('Backend initialization failed:', error);
     process.exit(1);
   }
 };

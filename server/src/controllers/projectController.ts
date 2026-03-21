@@ -24,7 +24,12 @@ export const importRepository = async (req: AuthRequest, res: Response): Promise
       console.error('RabbitMQ channel not available');
     }
 
-    res.status(201).json(project);
+    res.status(201).json({
+      id: (project as any)._id,
+      repository_url: project.repository_url,
+      status: project.status,
+      created_at: project.created_at
+    });
   } catch (error) {
     console.error('Error importing repository:', error);
     res.status(500).json({ message: 'Server error parsing repository' });
@@ -35,7 +40,13 @@ export const getUserProjects = async (req: AuthRequest, res: Response): Promise<
   if (!req.user) return;
   try {
     const projects = await getProjectsByUser((req.user as any)._id);
-    res.json(projects);
+    const projectsWithId = projects.map(p => ({
+      id: (p as any)._id,
+      repository_url: p.repository_url,
+      status: p.status,
+      created_at: p.created_at
+    }));
+    res.json(projectsWithId);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -49,7 +60,13 @@ export const getProjectDetails = async (req: AuthRequest, res: Response): Promis
       res.status(404).json({ message: 'Project not found' });
       return;
     }
-    res.json(project);
+    res.json({
+      id: (project as any)._id,
+      user_id: project.user_id,
+      repository_url: project.repository_url,
+      status: project.status,
+      created_at: project.created_at
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
