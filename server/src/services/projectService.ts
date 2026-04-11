@@ -6,7 +6,10 @@ const projectRepository = new ProjectRepository();
 
 export class ProjectService {
   async importRepository(userId: string, repositoryUrl: string) {
-    const project = await projectRepository.create(userId, repositoryUrl);
+    // Extract repository name from URL (e.g., https://github.com/user/repo -> repo)
+    const name = repositoryUrl.split('/').pop()?.replace('.git', '') || 'New Project';
+    
+    const project = await projectRepository.create(userId, repositoryUrl, name);
     
     // Trigger scan directly in the background
     processScanJob(project.id, repositoryUrl).catch(err => {
