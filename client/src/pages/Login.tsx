@@ -45,6 +45,7 @@ const Login = () => {
       dispatch(setCredentials({ user: response.data, token: response.data.token }));
       navigate('/dashboard');
     } catch (err: any) {
+      console.error('Login Error:', err);
       setError('Google authentication failed');
     } finally {
       setLoading(false);

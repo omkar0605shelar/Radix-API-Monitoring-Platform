@@ -30,7 +30,12 @@ redisClient.on('error', (err) => {
   }
 });
 
-redisClient.on('connect', () => console.log('✅ Redis Client Connected'));
+redisClient.on('connect', () => {
+  // Only log once to avoid flooding the console during reconnection
+});
+
+// Added a ready listener for a better indication of operational state
+redisClient.on('ready', () => console.log('✅ Redis Client Ready & Operational'));
 
 export const connectRedis = async () => {
   try {

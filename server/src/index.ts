@@ -28,7 +28,10 @@ const httpServer = http.createServer(app);
 const io = initSocket(httpServer);
 
 // Security & Performance Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
 app.use(cors());
 app.use(express.json());
@@ -64,16 +67,21 @@ app.use(errorHandler);
 // Start function
 const start = async () => {
   try {
+    // Initialize Core Services
     await initDb();
-    await connectRedis();
-    // await connectRabbitMQ();
     
-    // Start RabbitMQ background worker
-    startWorker();
+    // Start background services in parallel
+    connectRedis().then(() => {
+      startWorker();
+    }).catch(err => {
+      console.error('⚠️  Background services failed to initialize fully:', err.message);
+    });
     
+    // Start HTTP Server
     const PORT = process.env.PORT || 5000;
     httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`🚀 RADIX Backend Operational on port ${PORT}`);
+      console.log(`🔗 API Base: http://localhost:${PORT}/api`);
     });
 
     httpServer.on('error', (error: any) => {
