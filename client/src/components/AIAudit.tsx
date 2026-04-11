@@ -81,6 +81,7 @@ const AIAudit = ({ endpointId }: AIAuditProps) => {
       <AnimatePresence mode="wait">
         {loading ? (
           <motion.div
+            key="loading"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -93,7 +94,7 @@ const AIAudit = ({ endpointId }: AIAuditProps) => {
             </div>
           </motion.div>
         ) : audit ? (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
+          <motion.div key="auditContent" variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
             
             {/* Score Section */}
             <motion.div variants={itemVariants} className={`flex items-center gap-6 p-6 rounded-2xl border ${getScoreColor(audit.security_score)}`}>
@@ -154,6 +155,7 @@ const AIAudit = ({ endpointId }: AIAuditProps) => {
           </motion.div>
         ) : (
           <motion.div
+            key="emptyState"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="py-12 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/30 flex flex-col items-center justify-center text-center space-y-4"
