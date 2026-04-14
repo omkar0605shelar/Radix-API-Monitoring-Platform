@@ -56,16 +56,6 @@ const Settings = () => {
     }
   };
 
-  const handleUpgrade = async (_priceId: string) => {
-    try {
-      const { url } = await createCheckoutSession(_priceId);
-      window.location.href = url;
-    } catch (err) {
-      console.error('Failed to start checkout', err);
-      alert('Failed to initiate payment. Please try again.');
-    }
-  };
-
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopySuccess(id);
