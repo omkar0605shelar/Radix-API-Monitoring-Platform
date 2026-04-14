@@ -9,7 +9,7 @@ COPY prisma ./prisma/
 RUN npm install
 COPY . .
 
-RUN npx prisma generate && npm run build
+RUN npx prisma generate && ./node_modules/.bin/tsc
 
 # Production stage
 FROM node:20-alpine
@@ -20,6 +20,8 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/dist ./dist
+
+RUN npx prisma generate
 
 EXPOSE 5000
 
