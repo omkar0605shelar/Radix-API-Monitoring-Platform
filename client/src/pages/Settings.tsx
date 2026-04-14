@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import { Shield, Key, User, Plus, Trash2, Check, AlertTriangle, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiKeys, createApiKey, revokeApiKey } from '../services/apiKeyService';
-import { createCheckoutSession, getSubscriptionStatus } from '../services/billingService';
+import { getSubscriptionStatus } from '../services/billingService';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'keys' | 'billing'>('keys');
