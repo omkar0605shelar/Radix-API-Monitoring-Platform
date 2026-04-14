@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
-import { Shield, CreditCard, Key, User, Plus, Trash2, Globe, Check, Zap, AlertTriangle, ExternalLink, Copy } from 'lucide-react';
+import { Shield, Key, User, Plus, Trash2, Check, AlertTriangle, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiKeys, createApiKey, revokeApiKey } from '../services/apiKeyService';
 import { createCheckoutSession, getSubscriptionStatus } from '../services/billingService';
@@ -9,7 +9,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'keys' | 'billing'>('keys');
   const [keys, setKeys] = useState<any[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
-  const [subscription, setSubscription] = useState<any>(null);
+  const [, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
@@ -56,9 +56,9 @@ const Settings = () => {
     }
   };
 
-  const handleUpgrade = async (priceId: string) => {
+  const handleUpgrade = async (_priceId: string) => {
     try {
-      const { url } = await createCheckoutSession(priceId);
+      const { url } = await createCheckoutSession(_priceId);
       window.location.href = url;
     } catch (err) {
       console.error('Failed to start checkout', err);

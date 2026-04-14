@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { ArrowRight, Code, Database, Layers, CheckCircle, Zap, ShieldCheck, Globe, Cpu, Sparkles, Layout, Monitor } from 'lucide-react';
+import { ArrowRight, Code, Database, Layers, Zap, Globe, Cpu, Sparkles, Layout, Monitor } from 'lucide-react';
 
 const LandingPage = () => {
   const container = {

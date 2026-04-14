@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getMyTeams, createTeam as createTeamApi, inviteMember } from '../services/teamService';
 import { setTeams, addTeam } from '../redux/slices/teamSlice';
 import Navbar from '../components/Navbar';
-import { Users, UserPlus, Shield, Mail, Plus, Loader2, ArrowRight, CheckCircle2, Globe, ShieldCheck, Zap } from 'lucide-react';
+import { Users, UserPlus, Shield, Mail, Plus, Loader2, ArrowRight, Globe, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RootState } from '../redux/store';
 
