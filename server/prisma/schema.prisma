@@ -2,24 +2,26 @@ generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
   provider = "postgresql"
 }
 
 model User {
-  id                    String       @id @default(uuid())
-  name                  String
-  email                 String       @unique
-  password              String?
-  google_id             String?
-  razorpay_customer_id     String?      @unique
-  razorpay_subscription_id String?      @unique
-  subscription_tier        String       @default("pro") // free, pro, enterprise
-  subscription_status      String?      // active, past_due, canceled
-  created_at            DateTime     @default(now())
-  projects              Project[]
-  team_members          TeamMember[]
+  id                       String               @id @default(uuid())
+  name                     String
+  email                    String               @unique
+  password                 String?
+  google_id                String?
+  razorpay_customer_id     String?              @unique
+  razorpay_subscription_id String?              @unique
+  subscription_tier        String               @default("pro") // free, pro, enterprise
+  subscription_status      String?              // active, past_due, canceled
+  created_at               DateTime             @default(now())
+  projects                 Project[]
+  team_members             TeamMember[]
+  remediation_approvals    RemediationApproval[]
+  incident_feedbacks       IncidentFeedback[]
+  audit_logs               AuditLog[]
 }
 
 model Team {
@@ -48,21 +50,22 @@ enum Role {
 }
 
 model Project {
-  id              String       @id @default(uuid())
+  id              String         @id @default(uuid())
   user_id         String
   team_id         String?
   name            String
   description     String?
   repository_url  String?
-  status          String       @default("active")
-  created_at      DateTime     @default(now())
-  user            User         @relation(fields: [user_id], references: [id])
-  team            Team?        @relation(fields: [team_id], references: [id])
+  status          String         @default("active")
+  created_at      DateTime       @default(now())
+  user            User           @relation(fields: [user_id], references: [id])
+  team            Team?          @relation(fields: [team_id], references: [id])
   endpoints       Endpoint[]
   versions        ApiVersion[]
   api_keys        ApiKey[]
   alerts          Alert[]
   usage_records   UsageRecord[]
+  incidents       Incident[]
 }
 
 model ApiKey {
@@ -85,6 +88,7 @@ model Endpoint {
   ai_explanation   String?
   project          Project          @relation(fields: [project_id], references: [id])
   history          RequestHistory[]
+  incidents        Incident[]
 }
 
 model ApiVersion {
@@ -129,4 +133,197 @@ model Alert {
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
   project     Project  @relation(fields: [project_id], references: [id])
+}
+
+// ==========================================
+// RADIX 2.0: Incident & Remediation Models
+// ==========================================
+
+enum IncidentSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  AI_ANALYZING
+  REMEDIATION_PENDING
+  AWAITING_APPROVAL
+  REMEDIATING
+  VERIFYING
+  RESOLVED
+  REMEDIATION_FAILED
+  ESCALATED
+}
+
+enum IncidentCategory {
+  DATABASE
+  NETWORK
+  AUTHENTICATION
+  AUTHORIZATION
+  APPLICATION
+  DEPENDENCY
+  RATE_LIMIT
+  INFRASTRUCTURE
+  PERFORMANCE
+  SECURITY
+  UNKNOWN
+}
+
+enum RemediationStatus {
+  PENDING
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  EXECUTING
+  COMPLETED
+  FAILED
+}
+
+model Incident {
+  id               String              @id @default(uuid())
+  project_id       String
+  endpoint_id      String?
+  title            String
+  description      String?
+  severity         IncidentSeverity    @default(MEDIUM)
+  status           IncidentStatus      @default(OPEN)
+  category         IncidentCategory    @default(UNKNOWN)
+  detected_at      DateTime            @default(now())
+  resolved_at      DateTime?
+  metrics_snapshot Json?
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  project          Project             @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  endpoint         Endpoint?           @relation(fields: [endpoint_id], references: [id], onDelete: SetNull)
+  analyses         IncidentAnalysis[]
+  remediations     RemediationAction[]
+  events           IncidentEvent[]
+  feedbacks        IncidentFeedback[]
+
+  @@index([project_id, status])
+  @@index([endpoint_id])
+}
+
+model IncidentAnalysis {
+  id                 String    @id @default(uuid())
+  incident_id        String
+  root_cause         String
+  confidence         Float
+  reasoning          String
+  evidence           Json      // Array of strings
+  recommendations    Json      // Array of recommendation objects
+  category           String    @default("UNKNOWN")
+  model              String    @default("meta/llama-3.3-70b-instruct")
+  provider           String    @default("nvidia")
+  duration_ms        Int?
+  prompt_tokens      Int?
+  completion_tokens  Int?
+  created_at         DateTime  @default(now())
+
+  incident           Incident  @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@index([incident_id])
+}
+
+model RemediationAction {
+  id                String                 @id @default(uuid())
+  incident_id       String
+  action_type       String                 // e.g. "clear_cache", "increase_connection_pool", "restart_service"
+  title             String
+  description       String
+  reason            String
+  risk              String                 @default("MEDIUM") // "LOW", "MEDIUM", "HIGH"
+  confidence        Float                  @default(0.8)
+  requires_approval Boolean                @default(true)
+  status            RemediationStatus      @default(PENDING)
+  parameters        Json?
+  created_at        DateTime               @default(now())
+  updated_at        DateTime               @updatedAt
+
+  incident          Incident               @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  approvals         RemediationApproval[]
+  executions        RemediationExecution[]
+
+  @@index([incident_id])
+}
+
+model RemediationApproval {
+  id              String            @id @default(uuid())
+  remediation_id  String
+  user_id         String
+  status          String            // "APPROVED", "REJECTED"
+  reason          String?
+  approved_at     DateTime          @default(now())
+
+  remediation     RemediationAction @relation(fields: [remediation_id], references: [id], onDelete: Cascade)
+  user            User              @relation(fields: [user_id], references: [id])
+
+  @@index([remediation_id])
+}
+
+model RemediationExecution {
+  id                  String            @id @default(uuid())
+  remediation_id      String
+  started_at          DateTime          @default(now())
+  completed_at        DateTime?
+  status              String            @default("IN_PROGRESS") // "IN_PROGRESS", "SUCCESS", "FAILED"
+  result              Json?
+  error               String?
+  verification_result Json?
+  created_at          DateTime          @default(now())
+
+  remediation         RemediationAction @relation(fields: [remediation_id], references: [id], onDelete: Cascade)
+
+  @@index([remediation_id])
+}
+
+model IncidentEvent {
+  id          String   @id @default(uuid())
+  incident_id String
+  event_type  String   // "INCIDENT_CREATED", "AI_ANALYSIS_STARTED", etc.
+  message     String
+  metadata    Json?
+  actor_id    String?  // user_id, "AI_AGENT", or "SYSTEM"
+  created_at  DateTime @default(now())
+
+  incident    Incident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@index([incident_id])
+}
+
+model IncidentFeedback {
+  id                 String   @id @default(uuid())
+  incident_id        String
+  user_id            String
+  is_correct         Boolean
+  correct_root_cause String?
+  comments           String?
+  created_at         DateTime @default(now())
+
+  incident           Incident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  user               User     @relation(fields: [user_id], references: [id])
+
+  @@index([incident_id])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  user_id     String?
+  action      String   // "APPROVED_REMEDIATION", "TRIGGERED_SIMULATION", etc.
+  entity_type String   // "INCIDENT", "REMEDIATION"
+  entity_id   String
+  details     Json?
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  user        User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([entity_type, entity_id])
+  @@index([created_at])
 }

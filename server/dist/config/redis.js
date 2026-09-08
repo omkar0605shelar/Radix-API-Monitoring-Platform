@@ -1,14 +1,45 @@
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
 dotenv.config();
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+if (!process.env.REDIS_URL) {
+    console.warn('⚠️  REDIS_URL not found in environment variables. Defaulting to redis://localhost:6379');
+}
 const redisClient = createClient({
-    url: process.env.REDIS_URL,
+    url: REDIS_URL,
+    pingInterval: 30000, // Send a ping every 30 seconds to keep connection alive
+    socket: {
+        keepAlive: 30000,
+        reconnectStrategy: (retries) => {
+            // Small delay helps let the socket clear before reconnecting
+            const delay = Math.min(retries * 100, 3000);
+            return Math.max(delay, 500); // Minimum 500ms delay
+        }
+    }
 });
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.on('connect', () => console.log('Redis Client Connected'));
+redisClient.on('error', (err) => {
+    // Silent handling of standard socket closures
+    if (err.message === 'Socket closed unexpectedly' || err.code === 'ECONNRESET') {
+        return;
+    }
+    console.error('❌ Redis Client Error:', err.message);
+    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        console.error('👉 Redis connection unreachable at', REDIS_URL);
+    }
+});
+redisClient.on('connect', () => {
+    // Only log once to avoid flooding the console during reconnection
+});
+// Added a ready listener for a better indication of operational state
+redisClient.on('ready', () => console.log('✅ Redis Client Ready & Operational'));
 export const connectRedis = async () => {
-    if (!redisClient.isOpen) {
-        await redisClient.connect();
+    try {
+        if (!redisClient.isOpen) {
+            await redisClient.connect();
+        }
+    }
+    catch (err) {
+        console.error('❌ Failed to connect to Redis:', err.message);
     }
 };
 export default redisClient;

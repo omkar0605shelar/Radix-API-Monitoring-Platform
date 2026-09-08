@@ -15,16 +15,27 @@ export class EndpointService {
         // 2. Check Redis Cache
         const cacheKey = `endpoints:${projectId}`;
         if (redisClient.isOpen) {
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                return JSON.parse(cached);
+            try {
+                const cached = await redisClient.get(cacheKey);
+                if (cached) {
+                    return JSON.parse(cached);
+                }
+            }
+            catch (err) {
+                // Silent fallback: Upstash/Serverless Redis often closes idle sockets.
+                // The DB fallback below ensures the request still succeeds.
             }
         }
         // 3. Get from DB
         const endpoints = await endpointRepository.findByProjectId(projectId);
         // 4. Save to Cache ONLY if project is completed (expire in 1 hour)
         if (redisClient.isOpen && project.status === 'completed') {
-            await redisClient.setEx(cacheKey, 3600, JSON.stringify(endpoints));
+            try {
+                await redisClient.setEx(cacheKey, 3600, JSON.stringify(endpoints));
+            }
+            catch (err) {
+                // Silent handling of cache write failures.
+            }
         }
         return endpoints;
     }

@@ -28,6 +28,10 @@ const Navbar = () => {
               <Link to="/dashboard" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors tracking-wide">
                 Dashboard
               </Link>
+              <Link to="/incidents" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors tracking-wide flex items-center gap-1.5">
+                Incidents
+                <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              </Link>
               <Link to="/teams" className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors tracking-wide">
                 Teams
               </Link>

@@ -46,6 +46,23 @@ export class TestingService {
       // Don't fail the request if history save fails
     }
 
+    // Feed telemetry into anomaly detection engine
+    try {
+      const { AnomalyDetectionService } = await import('./incident/anomaly/anomalyDetectionService.js');
+      AnomalyDetectionService.recordTelemetry({
+        endpointId,
+        projectId: 'global',
+        endpointPath: url,
+        method,
+        duration,
+        status,
+        isError: status >= 400,
+        isTimeout: duration > 5000 || status === 504
+      });
+    } catch (telemetryErr) {
+      // safe
+    }
+
     return { status, duration, response };
   }
 

@@ -12,6 +12,8 @@ import ProjectDetails from './pages/ProjectDetails';
 import Teams from './pages/Teams';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import IncidentDashboard from './pages/IncidentDashboard';
+import IncidentDetails from './pages/IncidentDetails';
 
 import React from 'react';
 
@@ -33,6 +35,8 @@ const DynamicTitle = () => {
     const path = location.pathname;
     
     if (path === '/dashboard') document.title = `Dashboard | ${defaultTitle}`;
+    else if (path === '/incidents') document.title = `Incidents & Remediation | ${defaultTitle}`;
+    else if (path.startsWith('/incidents/')) document.title = `Incident Investigation | ${defaultTitle}`;
     else if (path === '/teams') document.title = `Teams | ${defaultTitle}`;
     else if (path === '/analytics') document.title = `Analytics | ${defaultTitle}`;
     else if (path === '/settings') document.title = `Settings | ${defaultTitle}`;
@@ -66,6 +70,18 @@ function App() {
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/incidents" element={
+            <ProtectedRoute>
+              <IncidentDashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/incidents/:id" element={
+            <ProtectedRoute>
+              <IncidentDetails />
             </ProtectedRoute>
           } />
 

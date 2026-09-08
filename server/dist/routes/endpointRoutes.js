@@ -1,9 +1,24 @@
 import { Router } from 'express';
 import { getProjectEndpoints } from '../controllers/endpointController.js';
-import { explainEndpoint } from '../controllers/aiController.js';
+import { explainEndpoint, auditEndpoint, refactorEndpoint, generateTestCases, autoFixEndpoint, generateSelfHealingTests, predictCapacity, generateSmartDocumentation, compareAiModels, generateSmartTestData, autoRemediateSecurity, checkPerformanceBudget, checkCompliance, reduceAlerts, designRecommendations, crossRegionAnalytics } from '../controllers/aiController.js';
 import { protect } from '../middleware/authMiddleware.js';
 const router = Router();
 router.use(protect); // secure all routes
 router.get('/project/:projectId', getProjectEndpoints);
 router.get('/:endpointId/explain', explainEndpoint);
+router.get('/:endpointId/audit', auditEndpoint);
+router.get('/:endpointId/refactor', refactorEndpoint);
+router.get('/:endpointId/test-cases', generateTestCases);
+router.get('/:endpointId/auto-fix', autoFixEndpoint);
+router.get('/:endpointId/self-healing-tests', generateSelfHealingTests);
+router.get('/:endpointId/predict-capacity', predictCapacity);
+router.get('/:endpointId/smart-docs', generateSmartDocumentation);
+router.get('/:endpointId/ai-comparison', compareAiModels);
+router.get('/:endpointId/smart-test-data', generateSmartTestData);
+router.get('/:endpointId/auto-remediate', autoRemediateSecurity);
+router.get('/:endpointId/performance-budget', checkPerformanceBudget);
+router.get('/:endpointId/compliance/:standard', checkCompliance);
+router.get('/:endpointId/reduce-alerts', reduceAlerts);
+router.get('/:endpointId/design-recs', designRecommendations);
+router.get('/:endpointId/cross-region', crossRegionAnalytics);
 export default router;

@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { IncidentController } from '../controllers/incidentController.js';
+import { protect } from '../middleware/authMiddleware.js';
+const router = Router();
+router.use(protect);
+router.get('/', IncidentController.getIncidents);
+router.get('/stats', IncidentController.getStats);
+router.post('/demo/simulate-outage', IncidentController.simulateOutage);
+router.get('/:id', IncidentController.getIncidentById);
+router.post('/:id/analyze', IncidentController.triggerAnalysis);
+router.post('/:id/feedback', IncidentController.submitFeedback);
+export default router;

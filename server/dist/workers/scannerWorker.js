@@ -1,4 +1,4 @@
-import { getChannel } from '../config/rabbitmq.js';
+// import { getChannel } from '../config/rabbitmq.js';
 import prisma from '../config/client.js';
 import { getIO } from '../config/socket.js';
 import redisClient from '../config/redis.js';
@@ -37,76 +37,68 @@ const extractRoutesFromFiles = (files) => {
     }
     return routes.filter((v, i, a) => a.findIndex(t => (t.method === v.method && t.path === v.path)) === i);
 };
-export const startWorker = async () => {
+export const processScanJob = async (projectId, repositoryUrl) => {
+    console.log(`Processing Job for Project ${projectId}: ${repositoryUrl}`);
+    const io = getIO();
+    const tempDir = path.join(process.cwd(), '.temp', projectId);
     try {
-        const channel = getChannel();
-        if (!channel) {
-            setTimeout(startWorker, 5000);
-            return;
+        await prisma.project.update({ where: { id: projectId }, data: { status: 'scanning' } });
+        io.to(projectId).emit('status_update', { status: 'scanning', message: 'Scanning started' });
+        // 1. Clone Repo
+        if (fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
         }
-        console.log('Code Scanner Worker started, waiting for jobs...');
-        channel.consume('api_scan_jobs', async (msg) => {
-            if (!msg)
-                return;
-            const { projectId, repositoryUrl } = JSON.parse(msg.content.toString());
-            console.log(`Processing Job for Project ${projectId}: ${repositoryUrl}`);
-            const io = getIO();
-            const tempDir = path.join(process.cwd(), '.temp', projectId);
+        await execAsync(`git clone ${repositoryUrl} "${tempDir}" --depth 1`);
+        io.to(projectId).emit('status_update', { status: 'processing', message: 'Analyzing code structure...' });
+        // 2. Parse Files
+        const files = findFiles(tempDir);
+        const extractedRoutes = extractRoutesFromFiles(files);
+        // 3. Save to DB
+        // Clear old endpoints if any for re-scan
+        await prisma.endpoint.deleteMany({ where: { project_id: projectId } });
+        for (const route of extractedRoutes) {
+            const mockRequest = ['POST', 'PUT', 'PATCH'].includes(route.method)
+                ? { exampleField: "exampleValue", message: "Auto-generated request schema" }
+                : null;
+            const mockResponse = {
+                success: true,
+                message: `Mock response for ${route.method} ${route.path}`
+            };
+            await prisma.endpoint.create({
+                data: {
+                    project_id: projectId,
+                    method: route.method,
+                    path: route.path,
+                    request_schema: mockRequest,
+                    response_schema: mockResponse
+                }
+            });
+        }
+        // 4. Update Status and Clear Cache
+        await prisma.project.update({ where: { id: projectId }, data: { status: 'completed' } });
+        if (redisClient.isOpen) {
             try {
-                await prisma.project.update({ where: { id: projectId }, data: { status: 'scanning' } });
-                io.to(projectId).emit('status_update', { status: 'scanning', message: 'Scanning started' });
-                // 1. Clone Repo
-                if (fs.existsSync(tempDir)) {
-                    fs.rmSync(tempDir, { recursive: true, force: true });
-                }
-                await execAsync(`git clone ${repositoryUrl} "${tempDir}" --depth 1`);
-                io.to(projectId).emit('status_update', { status: 'processing', message: 'Analyzing code structure...' });
-                // 2. Parse Files
-                const files = findFiles(tempDir);
-                const extractedRoutes = extractRoutesFromFiles(files);
-                // 3. Save to DB
-                // Clear old endpoints if any for re-scan
-                await prisma.endpoint.deleteMany({ where: { project_id: projectId } });
-                for (const route of extractedRoutes) {
-                    const mockRequest = ['POST', 'PUT', 'PATCH'].includes(route.method)
-                        ? { exampleField: "exampleValue", message: "Auto-generated request schema" }
-                        : null;
-                    const mockResponse = {
-                        success: true,
-                        message: `Mock response for ${route.method} ${route.path}`
-                    };
-                    await prisma.endpoint.create({
-                        data: {
-                            project_id: projectId,
-                            method: route.method,
-                            path: route.path,
-                            request_schema: mockRequest,
-                            response_schema: mockResponse
-                        }
-                    });
-                }
-                // 4. Update Status and Clear Cache
-                await prisma.project.update({ where: { id: projectId }, data: { status: 'completed' } });
-                if (redisClient.isOpen) {
-                    await redisClient.del(`endpoints:${projectId}`);
-                }
-                io.to(projectId).emit('status_update', { status: 'completed', message: 'Scanning completed successfully' });
-                console.log(`Successfully completed scan for project ${projectId}. Found ${extractedRoutes.length} endpoints.`);
+                await redisClient.del(`endpoints:${projectId}`);
             }
-            catch (error) {
-                console.error(`Error processing project ${projectId}:`, error);
-                await prisma.project.update({ where: { id: projectId }, data: { status: 'failed' } });
-                io.to(projectId).emit('status_update', { status: 'failed', message: 'Scanning failed' });
+            catch (err) {
+                // Silent cleanup: intermittent Redis errors shouldn't crash or worry the user after a successful scan.
             }
-            finally {
-                if (fs.existsSync(tempDir)) {
-                    fs.rmSync(tempDir, { recursive: true, force: true });
-                }
-                channel.ack(msg);
-            }
-        });
+        }
+        io.to(projectId).emit('status_update', { status: 'completed', message: 'Scanning completed successfully' });
+        console.log(`Successfully completed scan for project ${projectId}. Found ${extractedRoutes.length} endpoints.`);
     }
     catch (error) {
-        console.error('Worker failed to start:', error);
+        console.error(`Error processing project ${projectId}:`, error);
+        await prisma.project.update({ where: { id: projectId }, data: { status: 'failed' } });
+        io.to(projectId).emit('status_update', { status: 'failed', message: 'Scanning failed' });
     }
+    finally {
+        if (fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+    }
+};
+export const startWorker = async () => {
+    // No longer needed for RabbitMQ, but keeping the export signature to avoid index.ts breakages
+    console.log('Main server process now handles scans directly.');
 };

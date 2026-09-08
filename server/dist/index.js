@@ -5,7 +5,7 @@ import http from 'http';
 import { initSocket } from './config/socket.js';
 import { initDb } from './config/db.js';
 import { connectRedis } from './config/redis.js';
-import { connectRabbitMQ } from './config/rabbitmq.js';
+// import { connectRabbitMQ } from './config/rabbitmq.js';
 import authRoutes from './routes/authRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import endpointRoutes from './routes/endpointRoutes.js';
@@ -13,6 +13,8 @@ import testingRoutes from './routes/testingRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import mockRoutes from './routes/mockRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
+import incidentRoutes from './routes/incidentRoutes.js';
+import remediationRoutes from './routes/remediationRoutes.js';
 import helmet from 'helmet';
 import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
@@ -24,14 +26,20 @@ const httpServer = http.createServer(app);
 // Initialize Socket.io
 const io = initSocket(httpServer);
 // Security & Performance Middleware
-app.use(helmet());
+app.use(helmet({
+    crossOriginOpenerPolicy: false,
+    crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', `${process.env.FRONTEND_URL}`, `${process.env.AWS_EC2_IP}`],
+    credentials: true
+}));
 app.use(express.json());
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 100, // 100 requests per 15 minutes
+    limit: process.env.NODE_ENV === 'production' ? 100 : 10000, // 10k limit for local development
     standardHeaders: 'draft-7',
     legacyHeaders: false,
 });
@@ -45,23 +53,30 @@ app.use('/api/testing', testingRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/mock', mockRoutes);
 app.use('/api/github', githubRoutes);
+app.use('/api/incidents', incidentRoutes);
+app.use('/api/remediations', remediationRoutes);
 // Basic health check route
 app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'ok', message: 'API Insight Server running' });
+    res.status(200).json({ status: 'ok', message: 'RADIX Server running' });
 });
 // Global Error Handler
 app.use(errorHandler);
 // Start function
 const start = async () => {
     try {
+        // Initialize Core Services
         await initDb();
-        await connectRedis();
-        await connectRabbitMQ();
-        // Start RabbitMQ background worker
-        startWorker();
+        // Start background services in parallel
+        connectRedis().then(() => {
+            startWorker();
+        }).catch(err => {
+            console.error('⚠️  Background services failed to initialize fully:', err.message);
+        });
+        // Start HTTP Server
         const PORT = process.env.PORT || 5000;
         httpServer.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+            console.log(`🚀 RADIX Backend Operational on port ${PORT}`);
+            console.log(`🔗 API Base: http://13.206.50.255:${PORT}/api`);
         });
         httpServer.on('error', (error) => {
             if (error.code === 'EADDRINUSE') {

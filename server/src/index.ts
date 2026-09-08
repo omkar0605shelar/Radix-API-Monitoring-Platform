@@ -13,6 +13,8 @@ import testingRoutes from './routes/testingRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import mockRoutes from './routes/mockRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
+import incidentRoutes from './routes/incidentRoutes.js';
+import remediationRoutes from './routes/remediationRoutes.js';
 import helmet from 'helmet';
 import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
@@ -58,6 +60,8 @@ app.use('/api/testing', testingRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/mock', mockRoutes);
 app.use('/api/github', githubRoutes);
+app.use('/api/incidents', incidentRoutes);
+app.use('/api/remediations', remediationRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {

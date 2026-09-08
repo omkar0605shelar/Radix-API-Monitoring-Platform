@@ -1,10 +1,11 @@
 import prisma from '../config/client.js';
 export class ProjectRepository {
-    async create(userId, repositoryUrl) {
+    async create(userId, repositoryUrl, name) {
         return prisma.project.create({
             data: {
                 user_id: userId,
                 repository_url: repositoryUrl,
+                name: name,
                 status: 'pending'
             }
         });

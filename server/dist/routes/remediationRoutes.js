@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import { RemediationController } from '../controllers/remediationController.js';
+import { protect } from '../middleware/authMiddleware.js';
+const router = Router();
+router.use(protect);
+router.get('/registry', RemediationController.getRegistry);
+router.post('/:id/approve', RemediationController.approveRemediation);
+router.post('/:id/reject', RemediationController.rejectRemediation);
+router.post('/:id/execute', RemediationController.executeRemediation);
+export default router;

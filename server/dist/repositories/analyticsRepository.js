@@ -1,31 +1,56 @@
-import { Prisma } from '@prisma/client';
 import prisma from '../config/client.js';
 export class AnalyticsRepository {
     async getRequestCountsByEndpoint(projectId) {
-        const args = Prisma.validator()({
+        return prisma.requestHistory.groupBy({
             by: ['endpoint_id', 'method', 'url'],
             where: { endpoint: { project_id: projectId } },
             _count: { id: true },
-            orderBy: [
-                {
-                    _count: {
-                        id: 'desc'
-                    }
-                }
-            ]
+            _avg: { duration: true },
+            orderBy: { _count: { id: 'desc' } }
         });
-        return prisma.requestHistory.groupBy(args); // Keeping as any for now as Prisma groupBy types are notoriously difficult with aggregates and relations.
     }
     async getDailyRequestCounts(projectId, days = 7) {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
         return prisma.$queryRaw `
-      SELECT DATE(created_at) as date, COUNT(*) as count
+      SELECT DATE(created_at) as date, COUNT(*) as count, AVG(duration) as avg_latency
       FROM "RequestHistory"
       WHERE endpoint_id IN (SELECT id FROM "Endpoint" WHERE project_id = ${projectId})
       AND created_at >= ${startDate}
       GROUP BY DATE(created_at)
       ORDER BY date ASC
+    `;
+    }
+    /**
+     * Calculates P95 and P99 latencies for endpoints in a project.
+     */
+    async getLatencyPercentiles(projectId) {
+        return prisma.$queryRaw `
+      SELECT 
+        endpoint_id,
+        PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration) as p95,
+        PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration) as p99
+      FROM "RequestHistory"
+      WHERE endpoint_id IN (SELECT id FROM "Endpoint" WHERE project_id = ${projectId})
+      GROUP BY endpoint_id
+    `;
+    }
+    /**
+     * Detects outliers (anomalies) where latency is > (avg + 3 * stddev)
+     */
+    async detectLatencyAnomalies(projectId) {
+        return prisma.$queryRaw `
+      WITH stats AS (
+        SELECT endpoint_id, AVG(duration) as avg_d, STDDEV(duration) as std_d
+        FROM "RequestHistory"
+        WHERE endpoint_id IN (SELECT id FROM "Endpoint" WHERE project_id = ${projectId})
+        GROUP BY endpoint_id
+      )
+      SELECT h.*
+      FROM "RequestHistory" h
+      JOIN stats s ON h.endpoint_id = s.endpoint_id
+      WHERE h.duration > (s.avg_d + 3 * s.std_d)
+      AND h.created_at >= NOW() - INTERVAL '24 hours'
     `;
     }
     async getTotalEndpoints(projectId) {
