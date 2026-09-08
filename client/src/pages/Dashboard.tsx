@@ -6,13 +6,14 @@ import { setProjects, addProject } from '../redux/slices/projectSlice';
 import type { Project } from '../redux/slices/projectSlice';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
   const [repoUrl, setRepoUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const dispatch = useDispatch();
   const { projects } = useSelector((state: RootState) => state.project);
@@ -37,12 +38,15 @@ const Dashboard = () => {
     if (!repoUrl) return;
 
     setImporting(true);
+    setImportError(null);
     try {
       const res = await api.post('/projects/import', { repositoryUrl: repoUrl });
       dispatch(addProject(res.data));
       setRepoUrl('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Import failed', error);
+      const msg = error.response?.data?.message || (error.response?.status === 401 ? 'Session expired or unauthorized. Please re-login.' : 'Failed to import repository.');
+      setImportError(msg);
     } finally {
       setImporting(false);
     }
@@ -58,7 +62,7 @@ const Dashboard = () => {
       <Navbar />
 
       <main className="flex-1 container mx-auto px-6 py-10 max-w-7xl">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
           <div className="space-y-1">
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Intelligence Dashboard</h1>
             <p className="text-slate-500 text-lg">Monitor, analyze, and optimize your API infrastructure.</p>
@@ -69,7 +73,10 @@ const Dashboard = () => {
               <input
                 type="url"
                 value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
+                onChange={(e) => {
+                  setRepoUrl(e.target.value);
+                  if (importError) setImportError(null);
+                }}
                 placeholder="Paste GitHub repository URL"
                 className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                 required
@@ -85,6 +92,21 @@ const Dashboard = () => {
             </button>
           </form>
         </div>
+
+        {importError && (
+          <div className="mb-8 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl flex items-center justify-between gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" />
+              <span>{importError}</span>
+            </div>
+            <Link
+              to="/login"
+              className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-xs font-bold transition-colors shrink-0"
+            >
+              Re-login
+            </Link>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">

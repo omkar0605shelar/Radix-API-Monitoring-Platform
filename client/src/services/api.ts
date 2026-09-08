@@ -26,7 +26,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.warn('Session expired or unauthorized (401). Please re-login.');
+      console.warn('Session expired or unauthorized (401). Clearing credentials.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (
+        typeof window !== 'undefined' &&
+        !window.location.pathname.includes('/login') &&
+        !window.location.pathname.includes('/register')
+      ) {
+        window.location.href = '/login?expired=1';
+      }
     }
     return Promise.reject(error);
   }

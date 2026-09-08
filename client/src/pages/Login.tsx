@@ -12,7 +12,15 @@ import { motion } from 'framer-motion';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('expired') === '1') {
+        return 'Your session has expired or is invalid. Please log in or register to continue.';
+      }
+    }
+    return '';
+  });
   const [loading, setLoading] = useState(false);
 
   const dispatch = useDispatch();
