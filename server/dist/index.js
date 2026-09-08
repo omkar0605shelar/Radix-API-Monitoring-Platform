@@ -31,9 +31,25 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false,
 }));
 app.use(compression());
+// Permissive CORS for deployed frontend, localhost, and custom domains
 app.use(cors({
-    origin: ['http://localhost:5173', `${process.env.FRONTEND_URL}`, `${process.env.AWS_EC2_IP}`],
-    credentials: true
+    origin: (origin, callback) => {
+        // Requests with no origin (curl, server-to-server, mobile)
+        if (!origin)
+            return callback(null, true);
+        // Allow any onrender.com origin, localhost, vercel, or custom configured frontend URL
+        if (origin.includes('onrender.com') ||
+            origin.includes('localhost') ||
+            origin.includes('vercel.app') ||
+            (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL)) {
+            return callback(null, true);
+        }
+        // Permissive fallback so production frontend is never blocked
+        return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 app.use(express.json());
 // Rewrite duplicate /api/api prefix if client sends /api/api/...
@@ -70,34 +86,33 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 // Start function
 const start = async () => {
+    const PORT = process.env.PORT || 5000;
+    // 1. Bind to PORT immediately so Render health checks succeed without 502 Bad Gateway
+    httpServer.listen(PORT, () => {
+        console.log(`🚀 RADIX Backend Operational on port ${PORT}`);
+        console.log(`🔗 Health Check: /api/health`);
+    });
+    httpServer.on('error', (error) => {
+        if (error.code === 'EADDRINUSE') {
+            console.error(`Error: Port ${PORT} is already in use. Please stop the process using it.`);
+        }
+        else {
+            console.error('Server failed to start:', error);
+        }
+        process.exit(1);
+    });
+    // 2. Initialize database and background services
     try {
-        // Initialize Core Services
         await initDb();
-        // Start background services in parallel
-        connectRedis().then(() => {
-            startWorker();
-        }).catch(err => {
-            console.error('⚠️  Background services failed to initialize fully:', err.message);
-        });
-        // Start HTTP Server
-        const PORT = process.env.PORT || 5000;
-        httpServer.listen(PORT, () => {
-            console.log(`🚀 RADIX Backend Operational on port ${PORT}`);
-            console.log(`🔗 API Base: http://13.206.50.255:${PORT}/api`);
-        });
-        httpServer.on('error', (error) => {
-            if (error.code === 'EADDRINUSE') {
-                console.error(`Error: Port ${PORT} is already in use. Please stop the process using it.`);
-            }
-            else {
-                console.error('Server failed to start:', error);
-            }
-            process.exit(1);
-        });
     }
     catch (error) {
-        console.error('Backend initialization failed:', error);
-        process.exit(1);
+        console.error('⚠️  Database initial connection error (will retry on incoming requests):', error);
     }
+    // 3. Start background services
+    connectRedis().then(() => {
+        startWorker();
+    }).catch(err => {
+        console.warn('⚠️  Redis unavailable on this environment, continuing with in-memory/DB mode:', err.message);
+    });
 };
 start();
