@@ -58,7 +58,11 @@ const IncidentDashboard: React.FC = () => {
 
     // Socket.io Real-Time Synchronization
     const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    const socket = io(socketUrl, {
+      transports: ['polling', 'websocket'],
+      timeout: 20000,
+      reconnectionAttempts: 5
+    });
 
     socket.on('incident.created', (data: { incident: IncidentItem }) => {
       dispatch(addOrUpdateIncident(data.incident));

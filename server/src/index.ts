@@ -53,15 +53,15 @@ app.use('/api/', limiter);
 // App-wide Socket instance
 app.set('io', io);
 
-app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/endpoints', endpointRoutes);
-app.use('/api/testing', testingRoutes);
-app.use('/api/teams', teamRoutes);
-app.use('/api/mock', mockRoutes);
-app.use('/api/github', githubRoutes);
-app.use('/api/incidents', incidentRoutes);
-app.use('/api/remediations', remediationRoutes);
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/projects', '/projects'], projectRoutes);
+app.use(['/api/endpoints', '/endpoints'], endpointRoutes);
+app.use(['/api/testing', '/testing'], testingRoutes);
+app.use(['/api/teams', '/teams'], teamRoutes);
+app.use(['/api/mock', '/mock'], mockRoutes);
+app.use(['/api/github', '/github'], githubRoutes);
+app.use(['/api/incidents', '/incidents'], incidentRoutes);
+app.use(['/api/remediations', '/remediations'], remediationRoutes);
 
 // Basic health check route
 app.get('/api/health', (req, res) => {

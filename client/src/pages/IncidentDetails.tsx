@@ -49,7 +49,11 @@ const IncidentDetails: React.FC = () => {
     fetchIncident();
 
     const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    const socket = io(socketUrl, {
+      transports: ['polling', 'websocket'],
+      timeout: 20000,
+      reconnectionAttempts: 5
+    });
 
     socket.on('incident.analyzing', (data: { incidentId: string }) => {
       if (data.incidentId === id) setAnalyzing(true);

@@ -5,7 +5,15 @@ let io: Server;
 
 export const initSocket = (httpServer: http.Server) => {
   io = new Server(httpServer, {
-    cors: { origin: '*' }
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+      credentials: true
+    },
+    transports: ['polling', 'websocket'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
   });
 
   io.on('connection', (socket) => {

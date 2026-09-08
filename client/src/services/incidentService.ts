@@ -71,52 +71,52 @@ export const incidentService = {
     page?: number;
     limit?: number;
   }) {
-    const response = await api.get('/api/incidents', { params });
+    const response = await api.get('/incidents', { params });
     return response.data;
   },
 
   async getIncidentById(id: string): Promise<IncidentItem> {
-    const response = await api.get(`/api/incidents/${id}`);
+    const response = await api.get(`/incidents/${id}`);
     return response.data;
   },
 
   async triggerAnalysis(id: string) {
-    const response = await api.post(`/api/incidents/${id}/analyze`);
+    const response = await api.post(`/incidents/${id}/analyze`);
     return response.data;
   },
 
   async getStats(projectId?: string): Promise<IncidentStats> {
-    const response = await api.get('/api/incidents/stats', { params: { projectId } });
+    const response = await api.get('/incidents/stats', { params: { projectId } });
     return response.data;
   },
 
   async approveRemediation(remediationId: string, reason?: string) {
-    const response = await api.post(`/api/remediations/${remediationId}/approve`, { reason });
+    const response = await api.post(`/remediations/${remediationId}/approve`, { reason });
     return response.data;
   },
 
   async rejectRemediation(remediationId: string, reason: string) {
-    const response = await api.post(`/api/remediations/${remediationId}/reject`, { reason });
+    const response = await api.post(`/remediations/${remediationId}/reject`, { reason });
     return response.data;
   },
 
   async executeRemediation(remediationId: string) {
-    const response = await api.post(`/api/remediations/${remediationId}/execute`);
+    const response = await api.post(`/remediations/${remediationId}/execute`);
     return response.data;
   },
 
   async submitFeedback(incidentId: string, data: { isCorrect: boolean; correctRootCause?: string; comments?: string }) {
-    const response = await api.post(`/api/incidents/${incidentId}/feedback`, data);
+    const response = await api.post(`/incidents/${incidentId}/feedback`, data);
     return response.data;
   },
 
   async simulateOutageDemo(projectId?: string) {
-    const response = await api.post('/api/incidents/demo/simulate-outage', { projectId });
+    const response = await api.post('/incidents/demo/simulate-outage', { projectId });
     return response.data;
   },
 
   async getRemediationRegistry() {
-    const response = await api.get('/api/remediations/registry');
+    const response = await api.get('/remediations/registry');
     return response.data;
   }
 };
