@@ -15,6 +15,8 @@ const TestingConsole = ({ endpoint }: TestingConsoleProps) => {
   const [headers, setHeaders] = useState('{\n  "Content-Type": "application/json"\n}');
   const [executing, setExecuting] = useState(false);
   const [response, setResponse] = useState<any>(null);
+  const [targetMode, setTargetMode] = useState<'mock' | 'live'>('mock');
+  const [liveBaseUrl, setLiveBaseUrl] = useState('http://localhost:8000');
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -34,11 +36,17 @@ const TestingConsole = ({ endpoint }: TestingConsoleProps) => {
   const handleExecute = async () => {
     setExecuting(true);
     setActiveTab('response');
+    
+    const backendBase = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+    const computedUrl = targetMode === 'live' && liveBaseUrl.trim()
+      ? `${liveBaseUrl.trim().replace(/\/$/, '')}${endpoint.path}`
+      : `${backendBase}/api/mock/${endpoint.project_id}${endpoint.path}`;
+
     try {
       const result = await executeApiRequest({
         endpointId: endpoint.id,
         method: endpoint.method,
-        url: `${import.meta.env.VITE_API_URL.replace('/api', '')}/api/mock/${endpoint.project_id}${endpoint.path}`,
+        url: computedUrl,
         headers: JSON.parse(headers),
         body: endpoint.method !== 'GET' ? JSON.parse(requestBody) : undefined
       });
@@ -63,29 +71,73 @@ const TestingConsole = ({ endpoint }: TestingConsoleProps) => {
 
   return (
     <div className="bg-white rounded-3xl overflow-hidden flex flex-col h-[650px]">
-      {/* Header / URL Bar */}
-      <div className="p-6 border-b border-slate-100 bg-white flex items-center gap-4">
-        <div className="flex-1 flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 group focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-          <Globe className="h-4 w-4 text-slate-400" />
-          <div className="flex items-center gap-2 flex-1">
-             <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-               endpoint.method === 'GET' ? 'text-blue-600 bg-blue-50 border-blue-100' :
-               endpoint.method === 'POST' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' :
-               'text-amber-600 bg-amber-50 border-amber-100'
-             }`}>
-               {endpoint.method}
-             </span>
-             <span className="text-sm font-mono font-bold text-slate-600 truncate">{endpoint.path}</span>
+      {/* Header / URL Bar & Mode Switcher */}
+      <div className="p-6 border-b border-slate-100 bg-white space-y-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">Target API:</span>
+            <div className="inline-flex p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setTargetMode('mock')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  targetMode === 'mock' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                RADIX Mock
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetMode('live')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  targetMode === 'live' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Live / Localhost
+              </button>
+            </div>
           </div>
+
+          {targetMode === 'live' && (
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                value={liveBaseUrl}
+                onChange={(e) => setLiveBaseUrl(e.target.value)}
+                placeholder="Base URL (e.g. http://localhost:8000 or https://api.mysite.com)"
+                className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none font-mono"
+              />
+            </div>
+          )}
         </div>
-        <button
-          onClick={handleExecute}
-          disabled={executing}
-          className="bg-slate-900 text-white hover:bg-slate-800 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center transition-all disabled:opacity-50 shadow-lg shadow-slate-200 active:scale-95"
-        >
-          {executing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-          Execute
-        </button>
+
+        <div className="flex items-center gap-4">
+          <div className="flex-1 flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 group focus-within:border-primary/30 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+            <Globe className="h-4 w-4 text-slate-400 shrink-0" />
+            <div className="flex items-center gap-2 flex-1 overflow-hidden">
+               <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${
+                 endpoint.method === 'GET' ? 'text-blue-600 bg-blue-50 border-blue-100' :
+                 endpoint.method === 'POST' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' :
+                 'text-amber-600 bg-amber-50 border-amber-100'
+               }`}>
+                 {endpoint.method}
+               </span>
+               <span className="text-xs font-mono font-bold text-slate-600 truncate">
+                 {targetMode === 'live' && liveBaseUrl.trim()
+                   ? `${liveBaseUrl.trim().replace(/\/$/, '')}${endpoint.path}`
+                   : `mock://radix${endpoint.path}`}
+               </span>
+            </div>
+          </div>
+          <button
+            onClick={handleExecute}
+            disabled={executing}
+            className="bg-slate-900 text-white hover:bg-slate-800 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center transition-all disabled:opacity-50 shadow-lg shadow-slate-200 active:scale-95 shrink-0"
+          >
+            {executing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+            Execute
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
