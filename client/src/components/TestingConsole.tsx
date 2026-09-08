@@ -2,22 +2,35 @@ import { useState, useEffect } from 'react';
 import { History, Send, Terminal, Loader2, Clock, ShieldCheck, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { executeApiRequest, getRequestHistory } from '../services/testingService';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setHistory } from '../redux/slices/endpointSlice';
+import type { RootState } from '../redux/store';
 
 interface TestingConsoleProps {
   endpoint: any;
 }
 
 const TestingConsole = ({ endpoint }: TestingConsoleProps) => {
+  const { currentProject } = useSelector((state: RootState) => state.project);
+  const isLiveProject = Boolean(currentProject?.repository_url && !currentProject.repository_url.includes('github.com'));
+
   const [activeTab, setActiveTab] = useState<'params' | 'headers' | 'body' | 'response'>('body');
   const [requestBody, setRequestBody] = useState(JSON.stringify(endpoint.request_schema || {}, null, 2));
   const [headers, setHeaders] = useState('{\n  "Content-Type": "application/json"\n}');
   const [executing, setExecuting] = useState(false);
   const [response, setResponse] = useState<any>(null);
-  const [targetMode, setTargetMode] = useState<'mock' | 'live'>('mock');
-  const [liveBaseUrl, setLiveBaseUrl] = useState('http://localhost:8000');
+  const [targetMode, setTargetMode] = useState<'mock' | 'live'>(isLiveProject ? 'live' : 'mock');
+  const [liveBaseUrl, setLiveBaseUrl] = useState(
+    isLiveProject && currentProject?.repository_url ? currentProject.repository_url : 'http://localhost:8000'
+  );
   const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (isLiveProject && currentProject?.repository_url) {
+      setTargetMode('live');
+      setLiveBaseUrl(currentProject.repository_url);
+    }
+  }, [currentProject?.id, isLiveProject]);
 
   useEffect(() => {
     setRequestBody(JSON.stringify(endpoint.request_schema || {}, null, 2));

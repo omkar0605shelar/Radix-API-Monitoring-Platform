@@ -3,6 +3,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 export interface Project {
   id: string;
   user_id: string;
+  name?: string;
   repository_url: string;
   status: string;
   created_at: string;

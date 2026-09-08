@@ -6,7 +6,7 @@ import { setProjects, addProject, removeProject } from '../redux/slices/projectS
 import type { Project } from '../redux/slices/projectSlice';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight, AlertTriangle, Trash2 } from 'lucide-react';
+import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight, AlertTriangle, Trash2, Globe } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
@@ -35,17 +35,27 @@ const Dashboard = () => {
     fetchProjects();
   }, []);
 
+  // Real-time polling when any project is in 'scanning' or 'pending' state
+  useEffect(() => {
+    const hasActiveJob = projects.some(p => p.status === 'scanning' || p.status === 'pending');
+    if (!hasActiveJob) return;
+
+    const interval = setInterval(() => {
+      fetchProjects();
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [projects]);
+
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = repoUrl.trim();
     if (!trimmed) return;
 
-    // Check if user pasted an IP or live HTTP URL instead of GitHub repository
-    const isLiveUrlOrIp = /^(https?:\/\/)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|localhost)/i.test(trimmed);
-    const isGitHub = /^(https?:\/\/)?(www\.)?github\.com\/[\w.-]+\/[\w.-]+/i.test(trimmed);
-
-    if (isLiveUrlOrIp || !isGitHub) {
-      setImportError("Import requires a valid GitHub repository URL (e.g. https://github.com/owner/repo) to analyze project routes. To test requests against a live server or IP, open your project and select 'Live Target' in the Testing Console.");
+    // Validate that it is a URL or GitHub path
+    const isValidUrl = /^(https?:\/\/)/i.test(trimmed) || /^(www\.)?github\.com/i.test(trimmed) || /^localhost/i.test(trimmed);
+    if (!isValidUrl) {
+      setImportError("Please enter a valid GitHub repository URL (e.g. https://github.com/owner/repo) or Live API URL (e.g. https://api.mysite.com or http://localhost:3000).");
       return;
     }
 
@@ -55,6 +65,8 @@ const Dashboard = () => {
       const res = await api.post('/projects/import', { repositoryUrl: trimmed });
       dispatch(addProject(res.data));
       setRepoUrl('');
+      // Trigger a quick re-fetch to catch fast live scans
+      setTimeout(fetchProjects, 1500);
     } catch (error: any) {
       console.error('Import failed', error);
       const msg = error.response?.data?.message || (error.response?.status === 401 ? 'Session expired or unauthorized. Please re-login.' : 'Failed to import repository.');
@@ -178,45 +190,76 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredProjects.map((project: Project) => (
-                  <Link
-                    to={`/projects/${project.id}`}
-                    key={project.id}
-                    className="group relative flex items-center justify-between p-6 bg-white border border-slate-200 rounded-2xl hover:border-primary transition-all shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors">
-                        <Github className="h-6 w-6 text-slate-600 group-hover:text-primary" />
+                {filteredProjects.map((project: Project) => {
+                  const isGit = Boolean(project.repository_url && (project.repository_url.includes('github.com') || project.repository_url.includes('gitlab.com')));
+                  const displayName = isGit 
+                    ? project.repository_url?.replace('https://github.com/', '').replace('.git', '')
+                    : (project.name && project.name !== 'New Project' ? project.name : project.repository_url?.replace(/^https?:\/\//, ''));
+
+                  return (
+                    <Link
+                      to={`/projects/${project.id}`}
+                      key={project.id}
+                      className="group relative flex items-center justify-between p-6 bg-white border border-slate-200 rounded-2xl hover:border-primary transition-all shadow-sm hover:shadow-md"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-primary/5 transition-colors shrink-0">
+                          {isGit ? (
+                            <Github className="h-6 w-6 text-slate-700 group-hover:text-primary" />
+                          ) : (
+                            <Globe className="h-6 w-6 text-blue-600 group-hover:text-primary" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-bold text-lg text-slate-900 leading-tight truncate">
+                              {displayName}
+                            </h3>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              isGit ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}>
+                              {isGit ? 'GitHub Repo' : 'Live Service'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-slate-400 truncate">
+                            Created {new Date(project.created_at).toLocaleDateString()} • <span className="font-mono text-xs">{project.repository_url}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-slate-900 leading-tight">{project.repository_url?.replace('https://github.com/', '')}</h3>
-                        <p className="text-sm font-medium text-slate-400">Created {new Date(project.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-bold tracking-wider uppercase border ${project.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                          project.status === 'failed' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                            'bg-amber-50 text-amber-600 border-amber-100 animate-pulse'
-                        }`}>
-                        {project.status}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteProject(e, project.id, project.repository_url?.replace('https://github.com/', '') || 'Project')}
-                        disabled={deletingId === project.id}
-                        title="Delete project"
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      >
-                        {deletingId === project.id ? (
-                          <RefreshCw className="h-4 w-4 animate-spin text-rose-500" />
+                      <div className="flex items-center gap-3 shrink-0">
+                        {project.status === 'scanning' || project.status === 'pending' ? (
+                          <span className="px-3 py-1 rounded-lg text-xs font-bold tracking-wider uppercase border bg-blue-50 text-blue-600 border-blue-100 animate-pulse flex items-center gap-1.5">
+                            <RefreshCw className="h-3 w-3 animate-spin" /> {project.status}...
+                          </span>
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <span className={`px-3 py-1 rounded-lg text-xs font-bold tracking-wider uppercase border ${
+                            project.status === 'completed' 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                              : project.status === 'failed' 
+                                ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                          }`}>
+                            {project.status}
+                          </span>
                         )}
-                      </button>
-                      <ArrowUpRight className="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors" />
-                    </div>
-                  </Link>
-                ))}
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteProject(e, project.id, displayName || 'Project')}
+                          disabled={deletingId === project.id}
+                          title="Delete project"
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                          {deletingId === project.id ? (
+                            <RefreshCw className="h-4 w-4 animate-spin text-rose-500" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </button>
+                        <ArrowUpRight className="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors" />
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
