@@ -6,8 +6,8 @@ const nvidia = new OpenAI({
   baseURL: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
 });
 
-// Using the latest NVIDIA Llama 3.3 model
-const MODEL = "meta/llama-3.3-70b-instruct";
+// Defaulting to NVIDIA OpenAI gpt-oss-20b
+const MODEL = process.env.NVIDIA_MODEL || "openai/gpt-oss-20b";
 
 /**
  * Resilient JSON parsing to handle LLM markdown hallucinations
@@ -26,7 +26,7 @@ const cleanLLMJSON = (responseText: string): any => {
 export class AIService {
   
   /**
-   * Base method to call the NVIDIA APIs
+   * Base method to call the NVIDIA APIs using openai/gpt-oss-20b
    */
   private async callNvidia(prompt: string, isJson: boolean = true) {
     const apiKey = process.env.NVIDIA_API_KEY;
@@ -37,16 +37,27 @@ export class AIService {
     try {
       const response = await nvidia.chat.completions.create({
         model: MODEL,
-        messages: [{ role: "system", content: "You are a professional assistant. Follow instructions strictly." }, { role: "user", content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1024,
+        messages: [
+          { role: "system", content: "You are a professional assistant. Follow instructions strictly." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 4096,
+        stream: false,
         response_format: isJson ? { type: "json_object" } : undefined,
       } as any);
 
-      const content = response.choices[0]?.message?.content || "";
+      const message = response.choices[0]?.message as any;
+      const reasoning = message?.reasoning_content;
+      if (reasoning) {
+        console.log('[AI Reasoning]:', reasoning);
+      }
+
+      const content = message?.content || "";
       return isJson ? cleanLLMJSON(content) : content;
     } catch (error: any) {
-      console.warn('⚠️  NVIDIA AI API unavailable, switching to intelligent fallback generator:', error.message || error);
+      console.warn(`⚠️  NVIDIA AI (${MODEL}) API call failed, using intelligent fallback:`, error.message || error);
       return null;
     }
   }

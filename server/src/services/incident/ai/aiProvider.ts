@@ -37,7 +37,7 @@ export class NvidiaAIProvider implements IAIProvider {
       apiKey: process.env.NVIDIA_API_KEY || 'mock_key',
       baseURL: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
     });
-    this.model = process.env.AI_MODEL || process.env.NVIDIA_MODEL || 'meta/llama-3.3-70b-instruct';
+    this.model = process.env.AI_MODEL || process.env.NVIDIA_MODEL || 'openai/gpt-oss-20b';
   }
 
   async analyzeIncident(context: IncidentContext): Promise<AIAnalysisResult> {

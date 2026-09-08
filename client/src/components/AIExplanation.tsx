@@ -57,7 +57,7 @@ const AIExplanation = ({ endpointId, initialExplanation }: AIExplanationProps) =
           </div>
           <div>
             <h3 className="font-black text-xl text-slate-900 leading-tight">Smart API Documentation</h3>
-            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">Llama 3.3 70B Auto-Gen</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mt-1">OpenAI GPT-OSS-20B Auto-Gen</p>
           </div>
         </div>
         
