@@ -27,4 +27,33 @@ export class ProjectRepository {
             data: { status }
         });
     }
+    async delete(id, userId) {
+        const project = await prisma.project.findFirst({
+            where: { id, user_id: userId }
+        });
+        if (!project)
+            return null;
+        return prisma.$transaction(async (tx) => {
+            const endpoints = await tx.endpoint.findMany({
+                where: { project_id: id },
+                select: { id: true }
+            });
+            const endpointIds = endpoints.map(e => e.id);
+            if (endpointIds.length > 0) {
+                await tx.requestHistory.deleteMany({
+                    where: { endpoint_id: { in: endpointIds } }
+                });
+                await tx.endpoint.deleteMany({
+                    where: { id: { in: endpointIds } }
+                });
+            }
+            await tx.alert.deleteMany({ where: { project_id: id } });
+            await tx.apiKey.deleteMany({ where: { project_id: id } });
+            await tx.apiVersion.deleteMany({ where: { project_id: id } });
+            await tx.usageRecord.deleteMany({ where: { project_id: id } });
+            return tx.project.delete({
+                where: { id }
+            });
+        });
+    }
 }

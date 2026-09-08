@@ -38,3 +38,17 @@ export const getProjectDetails = async (req: AuthRequest, res: Response, next: N
     next(error);
   }
 };
+
+export const deleteProject = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  try {
+    const result = await projectService.deleteProject(req.params.id as string, (req.user as any).id);
+    res.json({ message: 'Project deleted successfully', project: result });
+  } catch (error) {
+    next(error);
+  }
+};
+

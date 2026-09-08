@@ -55,9 +55,15 @@ const projectSlice = createSlice({
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
+    },
+    removeProject: (state, action: PayloadAction<string>) => {
+      state.projects = state.projects.filter(p => p.id !== action.payload);
+      if (state.currentProject?.id === action.payload) {
+        state.currentProject = null;
+      }
     }
   },
 });
 
-export const { setProjects, addProject, setCurrentProject, setProjectAnalytics, setProjectVersions, setLoading } = projectSlice.actions;
+export const { setProjects, addProject, removeProject, setCurrentProject, setProjectAnalytics, setProjectVersions, setLoading } = projectSlice.actions;
 export default projectSlice.reducer;

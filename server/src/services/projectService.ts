@@ -32,4 +32,14 @@ export class ProjectService {
     }
     return project;
   }
+
+  async deleteProject(id: string, userId: string) {
+    const deleted = await projectRepository.delete(id, userId);
+    if (!deleted) {
+      const error = new Error('Project not found or unauthorized');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+    return deleted;
+  }
 }

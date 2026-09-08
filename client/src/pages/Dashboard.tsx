@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
-import { setProjects, addProject } from '../redux/slices/projectSlice';
+import { setProjects, addProject, removeProject } from '../redux/slices/projectSlice';
 import type { Project } from '../redux/slices/projectSlice';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
-import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight, AlertTriangle } from 'lucide-react';
+import { Search, Plus, FolderGit2, Activity, Github, RefreshCw, ArrowUpRight, AlertTriangle, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
   const [repoUrl, setRepoUrl] = useState('');
+  const [filterText, setFilterText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -35,12 +37,22 @@ const Dashboard = () => {
 
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!repoUrl) return;
+    const trimmed = repoUrl.trim();
+    if (!trimmed) return;
+
+    // Check if user pasted an IP or live HTTP URL instead of GitHub repository
+    const isLiveUrlOrIp = /^(https?:\/\/)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|localhost)/i.test(trimmed);
+    const isGitHub = /^(https?:\/\/)?(www\.)?github\.com\/[\w.-]+\/[\w.-]+/i.test(trimmed);
+
+    if (isLiveUrlOrIp || !isGitHub) {
+      setImportError("Import requires a valid GitHub repository URL (e.g. https://github.com/owner/repo) to analyze project routes. To test requests against a live server or IP, open your project and select 'Live Target' in the Testing Console.");
+      return;
+    }
 
     setImporting(true);
     setImportError(null);
     try {
-      const res = await api.post('/projects/import', { repositoryUrl: repoUrl });
+      const res = await api.post('/projects/import', { repositoryUrl: trimmed });
       dispatch(addProject(res.data));
       setRepoUrl('');
     } catch (error: any) {
@@ -51,6 +63,30 @@ const Dashboard = () => {
       setImporting(false);
     }
   };
+
+  const handleDeleteProject = async (e: React.MouseEvent, projectId: string, projectName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete "${projectName}"? This will remove all associated endpoints and incident records.`)) {
+      return;
+    }
+
+    setDeletingId(projectId);
+    try {
+      await api.delete(`/projects/${projectId}`);
+      dispatch(removeProject(projectId));
+    } catch (err: any) {
+      console.error('Failed to delete project', err);
+      alert(err.response?.data?.message || 'Failed to delete project');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const filteredProjects = projects.filter(p => {
+    const name = (p.repository_url || '').toLowerCase();
+    return name.includes(filterText.toLowerCase());
+  });
 
   const chartData = projects.slice(0, 5).map(p => ({
     name: p.repository_url?.split('/').pop() || 'Repo',
@@ -114,7 +150,13 @@ const Dashboard = () => {
               <h2 className="text-xl font-bold text-slate-800 flex items-center"><FolderGit2 className="mr-2 h-5 w-5 text-primary" /> Active Projects</h2>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input type="text" placeholder="Filter projects..." className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
+                <input
+                  type="text"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder="Filter projects..."
+                  className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                />
               </div>
             </div>
 
@@ -130,9 +172,13 @@ const Dashboard = () => {
                 <h3 className="text-xl font-bold text-slate-800">No project intelligence yet</h3>
                 <p className="text-slate-500 max-w-sm mx-auto mt-2">Connect your first GitHub repository to start receiving AI-powered RADIX insights.</p>
               </div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="py-12 text-center border border-slate-200 rounded-2xl bg-white/50">
+                <p className="text-slate-500 font-medium">No projects match &quot;{filterText}&quot;</p>
+              </div>
             ) : (
               <div className="grid gap-4">
-                {projects.map((project: Project) => (
+                {filteredProjects.map((project: Project) => (
                   <Link
                     to={`/projects/${project.id}`}
                     key={project.id}
@@ -147,13 +193,26 @@ const Dashboard = () => {
                         <p className="text-sm font-medium text-slate-400">Created {new Date(project.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <span className={`px-3 py-1 rounded-lg text-xs font-bold tracking-wider uppercase border ${project.status === 'completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                           project.status === 'failed' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                             'bg-amber-50 text-amber-600 border-amber-100 animate-pulse'
                         }`}>
                         {project.status}
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteProject(e, project.id, project.repository_url?.replace('https://github.com/', '') || 'Project')}
+                        disabled={deletingId === project.id}
+                        title="Delete project"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      >
+                        {deletingId === project.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin text-rose-500" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
                       <ArrowUpRight className="h-5 w-5 text-slate-300 group-hover:text-primary transition-colors" />
                     </div>
                   </Link>

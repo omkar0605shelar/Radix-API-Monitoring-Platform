@@ -36,3 +36,16 @@ export const getProjectDetails = async (req, res, next) => {
         next(error);
     }
 };
+export const deleteProject = async (req, res, next) => {
+    if (!req.user) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+    }
+    try {
+        const result = await projectService.deleteProject(req.params.id, req.user.id);
+        res.json({ message: 'Project deleted successfully', project: result });
+    }
+    catch (error) {
+        next(error);
+    }
+};
