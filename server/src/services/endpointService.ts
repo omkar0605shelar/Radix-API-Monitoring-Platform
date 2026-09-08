@@ -15,17 +15,19 @@ export class EndpointService {
       throw error;
     }
 
-    // 2. Check Redis Cache
+    // 2. Check Redis Cache safely (fail fast if Redis is idle/offline)
     const cacheKey = `endpoints:${projectId}`;
-    if (redisClient.isOpen) {
+    if (redisClient.isOpen && redisClient.isReady) {
       try {
-        const cached = await redisClient.get(cacheKey);
+        const cached = await Promise.race([
+          redisClient.get(cacheKey),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 800))
+        ]);
         if (cached) {
-          return JSON.parse(cached);
+          return JSON.parse(cached as string);
         }
       } catch (err) {
-        // Silent fallback: Upstash/Serverless Redis often closes idle sockets.
-        // The DB fallback below ensures the request still succeeds.
+        // Fallback directly to PostgreSQL below
       }
     }
 
@@ -33,11 +35,14 @@ export class EndpointService {
     const endpoints = await endpointRepository.findByProjectId(projectId);
 
     // 4. Save to Cache ONLY if project is completed (expire in 1 hour)
-    if (redisClient.isOpen && project.status === 'completed') {
+    if (redisClient.isOpen && redisClient.isReady && project.status === 'completed') {
       try {
-        await redisClient.setEx(cacheKey, 3600, JSON.stringify(endpoints));
+        await Promise.race([
+          redisClient.setEx(cacheKey, 3600, JSON.stringify(endpoints)),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 800))
+        ]);
       } catch (err) {
-        // Silent handling of cache write failures.
+        // Silent handling of cache write failures
       }
     }
 

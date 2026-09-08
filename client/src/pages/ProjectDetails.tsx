@@ -17,22 +17,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ProjectDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   const dispatch = useDispatch();
   const { endpoints, selectedEndpoint } = useSelector((state: RootState) => state.endpoint);
 
-  useEffect(() => {
-    const fetchEndpoints = async () => {
-      try {
-        const res = await api.get(`/endpoints/project/${id}`);
-        dispatch(setEndpoints(res.data));
-      } catch (error) {
-        console.error('Failed to fetch endpoints', error);
-      } finally {
-        setLoading(false);
+  const fetchEndpoints = async () => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await api.get(`/endpoints/project/${id}`);
+      dispatch(setEndpoints(res.data));
+      if (res.data && res.data.length > 0 && !selectedEndpoint) {
+        dispatch(setSelectedEndpoint(res.data[0]));
       }
-    };
+    } catch (error: any) {
+      console.error('Failed to fetch endpoints', error);
+      setErrorMessage(error.response?.data?.message || 'Failed to load endpoints');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) fetchEndpoints();
   }, [id, dispatch]);
 
@@ -83,10 +91,20 @@ const ProjectDetails = () => {
                   <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
                 ))}
               </div>
+            ) : errorMessage ? (
+              <div className="py-12 px-4 text-center space-y-3">
+                <p className="text-xs font-bold text-rose-500">{errorMessage}</p>
+                <button
+                  onClick={fetchEndpoints}
+                  className="px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors"
+                >
+                  Retry Loading
+                </button>
+              </div>
             ) : filteredEndpoints.length === 0 ? (
               <div className="py-20 text-center space-y-4">
                 <Search className="h-10 w-10 text-slate-200 mx-auto" />
-                <p className="text-sm font-bold text-slate-400">No matching endpoints</p>
+                <p className="text-sm font-bold text-slate-400">No endpoints found in this repository</p>
               </div>
             ) : (
               filteredEndpoints.map((ep: Endpoint) => (

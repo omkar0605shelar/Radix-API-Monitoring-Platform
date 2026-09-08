@@ -7,13 +7,16 @@ if (!process.env.REDIS_URL) {
 }
 const redisClient = createClient({
     url: REDIS_URL,
-    pingInterval: 30000, // Send a ping every 30 seconds to keep connection alive
+    disableOfflineQueue: true, // Fail immediately rather than hanging promises if Redis is offline
+    pingInterval: 30000,
     socket: {
+        connectTimeout: 3000,
         keepAlive: 30000,
         reconnectStrategy: (retries) => {
-            // Small delay helps let the socket clear before reconnecting
-            const delay = Math.min(retries * 100, 3000);
-            return Math.max(delay, 500); // Minimum 500ms delay
+            if (retries > 3) {
+                return false; // Stop reconnecting after 3 failed attempts
+            }
+            return 1000;
         }
     }
 });

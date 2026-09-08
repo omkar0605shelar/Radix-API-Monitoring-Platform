@@ -10,13 +10,19 @@ const execAsync = promisify(exec);
 const findFiles = (dir, fileList = []) => {
     const files = fs.readdirSync(dir);
     for (const file of files) {
-        if (file === 'node_modules' || file === '.git' || file === 'dist')
+        if (file === 'node_modules' || file === '.git' || file === 'dist' || file === 'vendor' || file === '.venv')
             continue;
         const stat = fs.statSync(path.join(dir, file));
         if (stat.isDirectory()) {
             findFiles(path.join(dir, file), fileList);
         }
-        else if (file.endsWith('.ts') || file.endsWith('.js')) {
+        else if (file.endsWith('.ts') ||
+            file.endsWith('.js') ||
+            file.endsWith('.php') ||
+            file.endsWith('.py') ||
+            file.endsWith('.go') ||
+            file.endsWith('.java') ||
+            file.endsWith('.cs')) {
             fileList.push(path.join(dir, file));
         }
     }
@@ -24,18 +30,53 @@ const findFiles = (dir, fileList = []) => {
 };
 const extractRoutesFromFiles = (files) => {
     const routes = [];
-    const routeRegex = /(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['"`](.*?)['"`]/g;
+    // 1. Express / Nest / Fastify: app.get('/...', ...), router.post('/...', ...)
+    const expressRegex = /(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['"`](.*?)['"`]/gi;
+    // 2. Laravel / PHP: Route::get('path', ...), Route::post('/path', ...)
+    const laravelRegex = /Route::(get|post|put|delete|patch)\s*\(\s*['"`](.*?)['"`]/gi;
+    // 3. Python FastAPI / Flask: @app.get('/...'), @router.post('/...'), @bp.route('/...', methods=['...'])
+    const pythonRegex = /@(?:app|router|bp)\.(get|post|put|delete|patch)\s*\(\s*['"`](.*?)['"`]/gi;
+    // 4. Go (Gin / Fiber / Echo / Chi): r.GET("/...", ...), app.Post("/...", ...)
+    const goRegex = /(?:r|router|app|api|v1|group)\.(GET|POST|PUT|DELETE|PATCH)\s*\(\s*['"`](.*?)['"`]/gi;
+    // 5. Spring Boot / Java: @GetMapping("/..."), @PostMapping("/...")
+    const springRegex = /@(Get|Post|Put|Delete|Patch)Mapping\s*\(\s*(?:value\s*=\s*)?['"`](.*?)['"`]/gi;
+    // 6. ASP.NET / C#: [HttpGet("...")], [HttpPost("...")]
+    const csharpRegex = /\[Http(Get|Post|Put|Delete|Patch)\s*\(\s*['"`](.*?)['"`]\)\]/gi;
     for (const file of files) {
-        const content = fs.readFileSync(file, 'utf-8');
-        let match;
-        while ((match = routeRegex.exec(content)) !== null) {
-            routes.push({
-                method: match[1].toUpperCase(),
-                path: match[2],
-            });
+        try {
+            const content = fs.readFileSync(file, 'utf-8');
+            let match;
+            while ((match = expressRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+            while ((match = laravelRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+            while ((match = pythonRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+            while ((match = goRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+            while ((match = springRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+            while ((match = csharpRegex.exec(content)) !== null) {
+                const p = match[2].startsWith('/') ? match[2] : '/' + match[2];
+                routes.push({ method: match[1].toUpperCase(), path: p });
+            }
+        }
+        catch {
+            // Ignore unreadable files
         }
     }
-    return routes.filter((v, i, a) => a.findIndex(t => (t.method === v.method && t.path === v.path)) === i);
+    const deduped = routes.filter((v, i, a) => a.findIndex(t => (t.method === v.method && t.path === v.path)) === i);
+    return deduped;
 };
 export const processScanJob = async (projectId, repositoryUrl) => {
     console.log(`Processing Job for Project ${projectId}: ${repositoryUrl}`);
