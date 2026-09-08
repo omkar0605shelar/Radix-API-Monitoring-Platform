@@ -9,12 +9,16 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    // Prevent accidental double /api/api/ prefix if baseURL already includes /api
-    if (config.url && config.baseURL?.endsWith('/api') && config.url.startsWith('/api/')) {
-      config.url = config.url.replace(/^\/api/, '');
+    // Prevent accidental double /api/api/ prefix if baseURL already includes /api or URL has /api/api
+    if (config.url) {
+      if (config.baseURL?.endsWith('/api') && config.url.startsWith('/api/')) {
+        config.url = config.url.replace(/^\/api/, '');
+      } else if (config.url.startsWith('/api/api/')) {
+        config.url = config.url.replace(/^\/api\/api\//, '/api/');
+      }
     }
     const token = localStorage.getItem('token');
-    if (token && config.headers) {
+    if (token && token !== 'undefined' && token !== 'null' && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;

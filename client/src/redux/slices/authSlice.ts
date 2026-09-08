@@ -12,10 +12,32 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+const getStoredToken = (): string | null => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token || token === 'undefined' || token === 'null') return null;
+    return token;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredUser = (): User | null => {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr || userStr === 'undefined' || userStr === 'null') return null;
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+};
+
+const initialToken = getStoredToken();
+
 const initialState: AuthState = {
-  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
-  token: localStorage.getItem('token') || null,
-  isAuthenticated: !!localStorage.getItem('token'),
+  user: getStoredUser(),
+  token: initialToken,
+  isAuthenticated: !!initialToken,
 };
 
 const authSlice = createSlice({

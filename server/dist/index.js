@@ -36,6 +36,13 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+// Rewrite duplicate /api/api prefix if client sends /api/api/...
+app.use((req, res, next) => {
+    if (req.url.startsWith('/api/api/')) {
+        req.url = req.url.replace(/^\/api\/api\//, '/api/');
+    }
+    next();
+});
 // Rate Limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -43,18 +50,18 @@ const limiter = rateLimit({
     standardHeaders: 'draft-7',
     legacyHeaders: false,
 });
-app.use('/api/', limiter);
+app.use(['/api/', '/api/api/'], limiter);
 // App-wide Socket instance
 app.set('io', io);
-app.use(['/api/auth', '/auth'], authRoutes);
-app.use(['/api/projects', '/projects'], projectRoutes);
-app.use(['/api/endpoints', '/endpoints'], endpointRoutes);
-app.use(['/api/testing', '/testing'], testingRoutes);
-app.use(['/api/teams', '/teams'], teamRoutes);
-app.use(['/api/mock', '/mock'], mockRoutes);
-app.use(['/api/github', '/github'], githubRoutes);
-app.use(['/api/incidents', '/incidents'], incidentRoutes);
-app.use(['/api/remediations', '/remediations'], remediationRoutes);
+app.use(['/api/auth', '/auth', '/api/api/auth'], authRoutes);
+app.use(['/api/projects', '/projects', '/api/api/projects'], projectRoutes);
+app.use(['/api/endpoints', '/endpoints', '/api/api/endpoints'], endpointRoutes);
+app.use(['/api/testing', '/testing', '/api/api/testing'], testingRoutes);
+app.use(['/api/teams', '/teams', '/api/api/teams'], teamRoutes);
+app.use(['/api/mock', '/mock', '/api/api/mock'], mockRoutes);
+app.use(['/api/github', '/github', '/api/api/github'], githubRoutes);
+app.use(['/api/incidents', '/incidents', '/api/api/incidents'], incidentRoutes);
+app.use(['/api/remediations', '/remediations', '/api/api/remediations'], remediationRoutes);
 // Basic health check route
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'RADIX Server running' });

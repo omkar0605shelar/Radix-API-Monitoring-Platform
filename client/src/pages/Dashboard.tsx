@@ -166,9 +166,9 @@ const Dashboard = () => {
             <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-premium overflow-hidden relative">
               <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 bg-primary/5 rounded-full blur-2xl" />
               <h3 className="font-bold text-slate-900 flex items-center mb-8"><Activity className="mr-2 h-5 w-5 text-primary" /> Global Performance</h3>
-              <div className="h-64">
+              <div className="h-64 w-full">
                 {projects.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" fontSize={11} fontWeight={600} tickLine={false} axisLine={false} tick={{ fill: '#94a3b8' }} />
